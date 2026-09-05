@@ -153,7 +153,7 @@ These are prompts for later human decisions, not backlog items:
 1. When Phase 5 starts, should the MCP adapter speak EMA as a *claim source* only?
 2. When (if ever) should an A2A adapter be scheduled relative to Phase 10 federation?
 3. Which first payment adapter, if any, is justified in Phase 9 — fake port, Stripe, SEPA, or x402?
-4. Is a signed mandate format JWS, or something else, at the Phase 5 gate (D-014)?
+4. Has a separate accepted decision defined the mandate wire format and cryptographic signing profile before any Phase 5 adapter relies on portable mandates (D-014)? Do not treat a market format as selected.
 5. Do EU deployment customers need a residency/WORM profile before Phase 4 storage stays on PostgreSQL only?
 
 ---

@@ -58,7 +58,7 @@ Embrace existing standards and vendors; own the **authority enforcement** and **
 | **Mission** | An approved statement of purpose that explains why authority exists *now*. |
 | **Mandate** | The portable, machine-readable authority object (see §14). |
 | **Delegation** | Issuance of a child mandate derived from a parent mandate. |
-| **Attenuation** | A child mandate that is strictly no broader than its parent on every authority axis. |
+| **Attenuation** | A child mandate that is no broader than its parent on every authority axis. Equality is allowed unless an axis explicitly requires a strict reduction. |
 | **Communication authority** | Permission to open a channel to a named class of destination. |
 | **Execution authority** | Permission to perform a named action (tool, API, payment, side effect). |
 | **Decision** | An independent allow/deny (or pending-approval) result for one requested act. |
@@ -125,7 +125,7 @@ The mission explains **why** the authority exists. Core principle:
 
 Agents may delegate authority to child agents.
 
-Delegation **must always attenuate** authority. **Privilege amplification is forbidden.**
+Delegation **must always attenuate** authority: the child MUST be no broader than its parent on every authority axis. Equality is allowed on an axis unless this specification requires a strict reduction. **`delegation_depth` MUST always strictly decrease.** **Privilege amplification is forbidden.**
 
 Delegation depth, expiry, scope and constraints must be explicit.
 
@@ -136,7 +136,7 @@ Delegation depth, expiry, scope and constraints must be explicit.
 - **S-DL-3.** Remaining delegation depth on a child SHALL be strictly less than on its parent, and SHALL NOT be negative.
 - **S-DL-4.** A mandate with remaining delegation depth `0` SHALL NOT be used to issue a child mandate.
 - **S-DL-5.** Child expiry SHALL be no later than parent expiry. Child `not_before` SHALL be no earlier than parent `not_before`.
-- **S-DL-6.** Child scope, communication set, execution set, budget and constraints SHALL be subsets / tighter bounds of the parent. Adding a permission, destination, action, budget headroom or loosened constraint is **amplification** and SHALL be rejected.
+- **S-DL-6.** Child scope, communication set, execution set, budget and constraints SHALL be no broader than the parent (equal or subset / equal or tighter). Equality on these axes is allowed. Adding a permission, destination, action, budget headroom or loosened constraint is **amplification** and SHALL be rejected. These axes are not required to become strictly narrower on every delegation.
 - **S-DL-7.** The full delegation chain from the originating mandate to the acting mandate SHALL be available to the decision and evidence planes.
 - **S-DL-8.** Revoking any ancestor mandate SHALL invalidate descendants.
 
@@ -305,6 +305,8 @@ To make the object implementable and non-amplifying, a mandate SHALL also includ
 
 ### 14.3 Authority axes (attenuation)
 
+A child is an attenuation iff it is **no broader** than its parent on every axis below. **Equality is allowed** on an axis unless that axis explicitly requires a strict reduction. The only axis that always requires a strict reduction is `delegation_depth`. Privilege amplification (any axis becoming broader) is forbidden. A child need not become strictly narrower on every axis.
+
 A child is an attenuation iff all of the following hold:
 
 1. `scope` ⊆ parent `scope`
@@ -323,7 +325,7 @@ A child is an attenuation iff all of the following hold:
 ### 14.4 Portability
 
 - **S-PM-1.** A mandate SHALL be representable as a vendor-neutral, machine-readable document.
-- **S-PM-2.** Phase 1 MAY persist the logical model only. A signed, serialized interchange format SHALL be specified before any external adapter depends on it (no later than the first adapter phase).
+- **S-PM-2.** Phase 1 MAY persist the logical model only. Before any external adapter relies on a portable mandate, a **separate accepted decision** SHALL define the mandate wire format and the cryptographic signing profile. This specification does not select that format or profile.
 - **S-PM-3.** Verification of a mandate MUST NOT require a proprietary runtime.
 
 ---

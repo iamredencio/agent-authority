@@ -63,9 +63,9 @@ Format:
 
 **Context.** Multi-agent systems spawn child agents. If children can widen scope, depth, budget or destinations, the original grant is meaningless.
 
-**Decision.** Delegation is allowed only as **strict attenuation** on every axis in specification §14.3. Privilege amplification is a hard error.
+**Decision.** A child mandate MUST be **no broader** than its parent on every authority axis in specification §14.3. **Equality is allowed** on an axis unless the specification explicitly requires a strict reduction. **`delegation_depth` MUST always strictly decrease.** Privilege amplification is a hard error. Delegation does **not** require every axis to become strictly narrower.
 
-**Consequences.** Phase 2 must test amplification attempts, not only happy-path children. Policy (Phase 3) may further deny but never widen.
+**Consequences.** Phase 2 must test amplification (widening) attempts and must accept equal-on-axis children where §14.3 allows equality. Policy (Phase 3) may further deny but never widen.
 
 ---
 
@@ -204,11 +204,18 @@ Format:
 **Status:** accepted  
 **Date:** 2026-09-06
 
-**Context.** Portable mandates need a stable document form. Signing needs keys. Neither should block the Phase 1 logical model.
+**Context.** Portable mandates need a stable wire format and a cryptographic signing profile. Choosing those now would either block the Phase 1 logical model or lock an unreviewed scheme.
 
-**Decision.** Phase 1 persists the logical mandate. Interchange is JSON matching specification §14. **Cryptographic signing is required before the first external adapter depends on portability** (no later than Phase 5). Exact signature suite (e.g. JWS) is decided at that time.
+**Decision.** Phase 1 persists the **logical** mandate only. Internal persistence of that model is not a portable wire format. This decision does **not** select a mandate wire format and does **not** select a cryptographic signing profile (including JWS, COSE, VC, or any other scheme).
 
-**Consequences.** Internal Phase 1–4 tests may use unsigned persisted objects. Phase 5 cannot ship “portable” MCP-facing mandates without a follow-up signing decision.
+**Before Phase 5 implements an external MCP adapter that relies on portable mandates**, a **separate accepted decision** MUST define both:
+
+1. the mandate wire format
+2. the cryptographic signing profile
+
+Until that separate decision exists and is `accepted`, Phase 5 MUST NOT implement or depend on a portable signed mandate document. An MCP adapter may still ask the Decision API using internal mandate identifiers.
+
+**Consequences.** Internal Phase 1–4 tests may use unsigned persisted objects. Phase 5 cannot treat mandates as portable interchange documents by inventing a format or signature suite in code. Architecture and roadmap gates refer here; they do not fill in the missing decision.
 
 ---
 

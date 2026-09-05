@@ -212,7 +212,9 @@ Logical fields — specification §14.
 - `issuer_binding_id`
 - `state` (`active` | `revoked` | `expired` | `superseded`)
 
-Serialization (Phase 2/5 boundary): JSON object matching these fields. Cryptographic signing of the serialized mandate is required before an external adapter treats a mandate as portable (see D-014).
+Internal persistence MAY store these fields as structured data (for example JSONB). That is not a portable wire format. A portable signed mandate document MUST NOT be implemented until a **separate accepted decision** (see D-014) defines both the wire format and the cryptographic signing profile. Phase 5 MUST NOT invent that format or profile in an MCP adapter.
+
+Attenuation (specification §14.3, D-004): a child mandate MUST be no broader than its parent on every authority axis. Equality is allowed unless an axis requires a strict reduction. `delegation_depth` MUST always strictly decrease. Privilege amplification is forbidden. Delegation does not require every axis to become strictly narrower.
 
 ### 6.6 DelegationChain
 
@@ -409,7 +411,7 @@ These are implementation assumptions, not silent product expansions. They also a
 1. Multi-tenant `organization` is the isolation boundary.
 2. PostgreSQL is the first evidence backend; WORM is a storage adapter later.
 3. One evidence hash chain per organization.
-4. Mandate interchange is JSON; signing lands before the first external adapter depends on portability.
+4. Mandate wire format and signing profile are unspecified until a separate accepted decision (D-014). Internal persistence is not portable interchange.
 5. No Redis in Phases 1–4.
 6. Decision API is HTTP/JSON (REST) in Phase 3.
 7. Human UI is out of scope until explicitly added; Phase 7 is workflow/API first.
