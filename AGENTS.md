@@ -93,7 +93,7 @@ These are always in force, including in early phases that only model them:
 1. **Identity is an integration layer**, not a competing IdP.
 2. **Authority is traceable** to an authority source.
 3. **No autonomous action without an approved mission.**
-4. **Delegation only attenuates.** Depth, expiry, scope and constraints are explicit.
+4. **Delegation only attenuates.** A child MUST be no broader than its parent on every authority axis. Equality is allowed unless the specification requires a strict reduction. `delegation_depth` MUST always strictly decrease. Privilege amplification is forbidden.
 5. **Communication and execution are independently authorized.** Unknown paths fail closed.
 6. **Runtimes and gateways are untrusted enforcement environments.**
 7. **Evidence is independent** of the runtime that performed the action.

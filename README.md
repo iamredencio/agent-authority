@@ -28,7 +28,7 @@ Identity, payment rails, agent runtimes, MCP servers, A2A endpoints and cloud re
 | **Identity** | Integration layer for Entra ID, Okta, SPIFFE, workload identity and custom IdPs. Not the product moat. |
 | **Authority source** | Traceable origin of permission: human approval, role, policy, contract, mandate or credential. |
 | **Mission** | Why authority exists *now*. No autonomous action without an approved mission. |
-| **Delegation** | Child agents may receive authority only by attenuation. Privilege amplification is forbidden. |
+| **Delegation** | Child agents may receive authority only by attenuation: no broader than the parent; equality allowed except where an axis must strictly decrease (`delegation_depth`). Privilege amplification is forbidden. |
 | **Communication authority** | Explicit permission to reach external agents, MCP servers, A2A endpoints, APIs and destinations. Unknown paths fail closed. |
 | **Execution authority** | Every requested action is independently authorized. Gateway authentication is not authorization. |
 | **Evidence plane** | Independent, hash-chained record of missions, decisions, calls, results, revocations and containment. |
@@ -66,9 +66,9 @@ Approved for implementation phases (not started in Phase 0):
 
 ## Current status
 
-**Phase 0 — Repository and specification foundation.**
+**Phase 0 — Repository and specification foundation** is `locked`.
 
-No application functionality is implemented. Do not start Phase 1 unless the roadmap marks it approved and a human explicitly authorizes that phase.
+No application functionality is implemented. Phase 1 is `planned`, not approved. Do not start Phase 1 unless the roadmap marks it approved and a human explicitly authorizes that phase.
 
 ## Development discipline
 

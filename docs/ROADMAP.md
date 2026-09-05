@@ -17,9 +17,7 @@ Market-watch items are not phases. They enter this file only after an approved d
 | **State** | `approved` — may be implemented when a human explicitly requests it; `locked` — done; `planned` — not yet approved for implementation |
 | **Gate** | A human must explicitly approve starting the next phase after the verification report for the current phase |
 
-**Current approved implementation phase:** Phase 0 only.
-
-Phase 1+ remain `planned` until a human marks them `approved` **and** explicitly requests implementation.
+**Current approved implementation phase:** none. Phase 0 is `locked`. Phase 1+ remain `planned` until a human marks them `approved` **and** explicitly requests implementation.
 
 ---
 
@@ -38,7 +36,7 @@ Phase 1+ remain `planned` until a human marks them `approved` **and** explicitly
 
 ## Phase 0 — Repository and specification foundation
 
-**State:** `approved` (this change set)  
+**State:** `locked`  
 **Goal:** Establish the product contract. No application functionality.
 
 ### In scope
@@ -50,6 +48,7 @@ Phase 1+ remain `planned` until a human marks them `approved` **and** explicitly
 - `docs/ROADMAP.md`
 - `docs/DECISIONS.md`
 - `docs/MARKET-WATCH.md`
+- `reports/PHASE-0-VERIFICATION-REPORT.md` (produced at close)
 
 ### Out of scope
 
@@ -114,9 +113,9 @@ Phase 1+ remain `planned` until a human marks them `approved` **and** explicitly
 
 - Mission state machine (`draft` → `pending_approval` → `approved` / …)
 - Originating mandate issuance against an approved mission
-- Child mandate issuance with full attenuation checks (specification §14.3)
+- Child mandate issuance with full attenuation checks (specification §14.3; equality allowed except where an axis requires strict reduction)
 - Delegation chain reconstruction
-- Rejection of privilege amplification
+- Rejection of privilege amplification (widening). Equal-on-axis children are valid where §14.3 allows equality.
 
 ### Out of scope
 
@@ -130,8 +129,8 @@ Phase 1+ remain `planned` until a human marks them `approved` **and** explicitly
 | ID | Criterion |
 | --- | --- |
 | P2-1 | Actions (as domain operations) refuse a non-approved or out-of-window mission. |
-| P2-2 | Child issuance fails if any attenuation axis is widened. |
-| P2-3 | `delegation_depth` 0 cannot issue children; child depth is strictly smaller. |
+| P2-2 | Child issuance fails if any attenuation axis is widened. Equal-on-axis children pass where §14.3 allows equality. |
+| P2-3 | `delegation_depth` 0 cannot issue children; child depth is strictly smaller. Other axes are not required to strictly decrease. |
 | P2-4 | Child expiry/not_before cannot exceed parent windows. |
 | P2-5 | Ancestor walk fails closed on a missing link. |
 | P2-6 | Lint, tests, `reports/PHASE-2-VERIFICATION-REPORT.md`. No Phase 3 API. |
@@ -184,7 +183,7 @@ Phase 1+ remain `planned` until a human marks them `approved` **and** explicitly
 - Record types in architecture §7
 - Decision and mandate/mission lifecycle events append to the log
 - Tamper-detection test (broken chain)
-- Signature field present (signing backend may be stubbed if D-014 still open)
+- Signature field present (mandate wire format and signing profile remain unspecified until a separate accepted decision; see D-014)
 - Design seam for later WORM storage
 
 ### Out of scope
@@ -211,24 +210,35 @@ Phase 1+ remain `planned` until a human marks them `approved` **and** explicitly
 **State:** `planned`  
 **Goal:** Treat MCP as an untrusted enforcement environment that must ask the Decision API.
 
+### Gate (portable mandates)
+
+Before Phase 5 implements an **external MCP adapter that relies on portable mandates**, a **separate accepted decision** MUST define:
+
+1. the mandate wire format
+2. the cryptographic signing profile
+
+D-014 does not provide those definitions and MUST NOT be treated as that decision. Phase 5 MUST NOT select a signing scheme (including JWS, COSE, or VC) by implementation default. Until the separate decision is `accepted`, the adapter MAY call the Decision API with internal mandate identifiers and MUST NOT depend on a portable signed mandate document.
+
 ### In scope
 
-- MCP adapter package
-- Signed/portable mandate representation if not already locked
+- MCP adapter package that asks the Decision API
 - Map MCP tool calls to communication + execution decisions
 - Fail closed on unknown servers/tools
 - Evidence of MCP calls via the evidence plane
+- Portable/signed mandate representation **only if** the Phase 5 portable-mandate gate above is already satisfied
 
 ### Out of scope
 
 - Shipping a general-purpose MCP gateway product
 - A2A adapter
 - Identity provider productization
+- Choosing or inventing a mandate wire format or signing profile inside this phase
 
 ### Acceptance criteria
 
 | ID | Criterion |
 | --- | --- |
+| P5-0 | If the adapter relies on portable mandates, a separate accepted decision defines wire format and signing profile; otherwise the adapter does not depend on a portable mandate document. |
 | P5-1 | An MCP tool call is authorized only after Decision API `allow`. |
 | P5-2 | Unknown MCP server or tool is denied. |
 | P5-3 | Adapter cannot mint or widen a mandate. |
@@ -388,6 +398,7 @@ Phase 1+ remain `planned` until a human marks them `approved` **and** explicitly
 
 These need a decision before they become phases:
 
+- Mandate wire format and cryptographic signing profile (required before any Phase 5 portable-mandate adapter; see D-014)
 - Python and TypeScript SDKs
 - Dedicated Okta, SPIFFE, CrowdStrike adapters
 - A2A adapter
