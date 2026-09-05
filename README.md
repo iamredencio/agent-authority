@@ -72,6 +72,8 @@ No application functionality is implemented. Do not start Phase 1 unless the roa
 
 ## Development discipline
 
+Work on a **feature branch** and open a **pull request** to `main`. Do not commit or push to `main`. Merged branches are deleted automatically.
+
 Every implementation phase must:
 
 1. Read `AGENTS.md`

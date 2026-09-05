@@ -274,3 +274,16 @@ Format:
 **Decision.** Phase 0 adds only the documentation files listed in the roadmap. No Go module, no schema, no CI application pipeline required to complete Phase 0.
 
 **Consequences.** The first `go.mod` belongs to Phase 1 after explicit approval.
+
+---
+
+## D-020 — Feature branches, pull requests, auto-delete on merge
+
+**Status:** accepted  
+**Date:** 2026-09-06
+
+**Context.** Direct commits to `main` skip review and leave stale branches after merge.
+
+**Decision.** Every change lands on a feature branch and a pull request to `main`. Do not push implementation or documentation commits to `main`. Enable GitHub **Automatically delete head branches** so merged branches are removed.
+
+**Consequences.** Engineering agents must create a branch before committing or pushing. Local `main` should track `origin/main`. Long-lived feature branches are not used.

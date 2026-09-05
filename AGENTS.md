@@ -118,6 +118,14 @@ Until a later approved decision supersedes them:
 
 Intended Go layout (create only when the approved phase needs it): `cmd/`, `internal/`, `api/`, `docs/`, `reports/`, `deploy/`.
 
+## Git workflow
+
+- **Never commit or push to `main`.** Create a feature branch for every change.
+- Open a pull request into `main`. Do not merge unless the human explicitly asks.
+- The repository auto-deletes head branches after merge. Do not keep long-lived feature branches.
+- Branch names should be short and purpose-based (for example `docs/phase-0-foundation`, `phase-1-domain-model`).
+- Do not force-push to `main`. Do not update git config.
+
 ## Code and change rules (implementation phases)
 
 - Prefer small, reviewable diffs that map to one phase.
