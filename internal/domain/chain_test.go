@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -37,6 +38,13 @@ func TestReconstructDelegationChainSuccess(t *testing.T) {
 	}
 	if chain[0].MandateID != origin.MandateID || chain[1].MandateID != mid.MandateID || chain[2].MandateID != leaf.MandateID {
 		t.Fatalf("order = %v → %v → %v", chain[0].MandateID, chain[1].MandateID, chain[2].MandateID)
+	}
+	verified, err := VerifyDelegationChain(env.org.OrganizationID, leaf.MandateID, lookup, mapMissionLookup(env.mission), testNow())
+	if err != nil {
+		t.Fatalf("VerifyDelegationChain: %v", err)
+	}
+	if len(verified) != 3 {
+		t.Fatalf("verified len = %d", len(verified))
 	}
 }
 
@@ -123,6 +131,32 @@ func TestReconstructDelegationChainCycleFailsClosed(t *testing.T) {
 	}
 }
 
+func TestVerifyDelegationChainRejectsWidenedStoredChild(t *testing.T) {
+	parent, env := issueParent(t)
+	childP := env.parentParams()
+	childP.ParentMandateID = ptrID(parent.MandateID)
+	childP.DelegationDepth = 1
+	childP.ExecutionAuthority = json.RawMessage(`[{"action":"draft_report"},{"action":"wire_funds"}]`)
+	child, err := NewMandate(childP)
+	if err != nil {
+		t.Fatalf("storage constructor must still persist a widened child: %v", err)
+	}
+
+	lookup := mapLookup(parent, child)
+	chain, err := ReconstructDelegationChain(env.org.OrganizationID, child.MandateID, lookup)
+	if err != nil {
+		t.Fatalf("structural reconstruct of a widened child: %v", err)
+	}
+	if len(chain) != 2 {
+		t.Fatalf("len = %d", len(chain))
+	}
+
+	_, err = VerifyDelegationChain(env.org.OrganizationID, child.MandateID, lookup, mapMissionLookup(env.mission), testNow())
+	if !errors.Is(err, ErrBrokenChain) || !errors.Is(err, ErrAmplification) {
+		t.Fatalf("verified reconstruct err = %v, want ErrBrokenChain and ErrAmplification", err)
+	}
+}
+
 func mapLookup(mandates ...Mandate) MandateLookup {
 	byID := make(map[uuid.UUID]Mandate, len(mandates))
 	for _, m := range mandates {
@@ -132,6 +166,20 @@ func mapLookup(mandates ...Mandate) MandateLookup {
 		m, ok := byID[id]
 		if !ok || m.OrganizationID != org {
 			return Mandate{}, ErrNotFound
+		}
+		return m, nil
+	}
+}
+
+func mapMissionLookup(missions ...Mission) MissionLookup {
+	byID := make(map[uuid.UUID]Mission, len(missions))
+	for _, m := range missions {
+		byID[m.MissionID] = m
+	}
+	return func(org, id uuid.UUID) (Mission, error) {
+		m, ok := byID[id]
+		if !ok || m.OrganizationID != org {
+			return Mission{}, ErrNotFound
 		}
 		return m, nil
 	}

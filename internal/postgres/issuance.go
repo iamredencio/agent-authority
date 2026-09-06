@@ -63,6 +63,18 @@ func (s *Store) ReconstructDelegationChain(ctx context.Context, organizationID, 
 	})
 }
 
+func (s *Store) VerifyDelegationChain(ctx context.Context, organizationID, mandateID uuid.UUID, now time.Time) ([]domain.Mandate, error) {
+	return domain.VerifyDelegationChain(organizationID, mandateID,
+		func(orgID, id uuid.UUID) (domain.Mandate, error) {
+			return s.GetMandate(ctx, orgID, id)
+		},
+		func(orgID, id uuid.UUID) (domain.Mission, error) {
+			return s.GetMission(ctx, orgID, id)
+		},
+		now,
+	)
+}
+
 func (s *Store) mandateRelations(ctx context.Context, p domain.MandateParams) (domain.MandateRelations, error) {
 	principal, err := s.GetIdentityBinding(ctx, p.OrganizationID, p.PrincipalBindingID)
 	if err != nil {

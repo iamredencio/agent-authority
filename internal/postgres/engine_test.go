@@ -95,6 +95,42 @@ func TestIssueChildMandateAndChainPersistence(t *testing.T) {
 	if len(chain) != 2 || chain[0].MandateID != parent.MandateID || chain[1].MandateID != child.MandateID {
 		t.Fatalf("chain = %+v", chain)
 	}
+	verified, err := store.VerifyDelegationChain(ctx, org.OrganizationID, child.MandateID, now)
+	if err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+	if len(verified) != 2 {
+		t.Fatalf("verified len = %d", len(verified))
+	}
+}
+
+func TestVerifyDelegationChainRejectsPersistedWidenedChild(t *testing.T) {
+	store := openTestStore(t)
+	ctx := context.Background()
+	org, fixtures := seedApprovedMission(t, store)
+	now := time.Date(2026, 9, 6, 12, 0, 0, 0, time.UTC)
+	parent, err := store.IssueOriginatingMandate(ctx, richParams(fixtures), now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	childP := richParams(fixtures)
+	childP.ParentMandateID = ptr(parent.MandateID)
+	childP.DelegationDepth = 1
+	childP.ExecutionAuthority = json.RawMessage(`[{"action":"draft_report"},{"action":"wire_funds"}]`)
+	widened, err := domain.NewMandate(childP)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.CreateMandate(ctx, widened); err != nil {
+		t.Fatalf("storage constructor persisted widened child: %v", err)
+	}
+	if _, err := store.ReconstructDelegationChain(ctx, org.OrganizationID, widened.MandateID); err != nil {
+		t.Fatalf("structural reconstruct: %v", err)
+	}
+	_, err = store.VerifyDelegationChain(ctx, org.OrganizationID, widened.MandateID, now)
+	if !errors.Is(err, domain.ErrBrokenChain) || !errors.Is(err, domain.ErrAmplification) {
+		t.Fatalf("verified reconstruct err = %v, want ErrBrokenChain and ErrAmplification", err)
+	}
 }
 
 func TestIssueChildRejectsAmplificationPersistence(t *testing.T) {

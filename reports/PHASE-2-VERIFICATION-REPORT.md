@@ -13,6 +13,7 @@
 | Branch | `phase-2-mission-delegation` |
 | Base | `origin/main` (`6d65d94` — Phase 1 locked) |
 | Implementation commit | `3d5bd2601288ee070de1c221a9f4890ed35e5a18` |
+| Review fix | Verified delegation-chain reconstruction (PR #9 review) |
 | Go module | `github.com/iamredencio/agent-authority` |
 | Go version used | `go1.24.6 darwin/arm64` |
 
@@ -31,7 +32,7 @@ Out of scope: Phase 3+ APIs, policy, evidence, adapters, Redis, SDKs, portable m
 | Section | What was implemented |
 | --- | --- |
 | §5 Mission (S-MS-2, S-MS-4, S-MS-5 as domain gates) | `AssertAuthorizes` and issuance refuse non-approved or out-of-window missions. Ending/suspending/expiring is modeled as a state that no longer authorizes. |
-| §6 Delegation (S-DL-1–S-DL-8 except revocation cascade engine) | Child issuance requires a parent, attenuation on every §14.3 axis, strict depth decrease, window containment, and fail-closed ancestor walk. |
+| §6 Delegation (S-DL-1–S-DL-8 except revocation cascade engine) | Child issuance requires a parent, attenuation on every §14.3 axis, strict depth decrease, window containment, and fail-closed ancestor walk. `VerifyDelegationChain` re-proves attenuation on every stored hop; `ReconstructDelegationChain` is structural only. |
 | §7 / §8 communication and execution (as authority sets) | Explicit target arrays; unknown or wildcard destinations/actions fail closed. Independent execution vs communication sets. |
 | §11 Financial authority (attenuation only) | Budget subset against remaining parent budget, same unit, no extra category. No payment adapter. |
 | §14.3 Authority axes | Deterministic subset / stricter-or-equal checks. Equality allowed except `delegation_depth`. |
@@ -72,7 +73,7 @@ A child is accepted only when it is no broader than its parent on every axis. Eq
 | `mission` | Same mission as the parent, or a recorded sub-mission whose `parent_mission_id` is the parent mandate’s mission, approved and in window, and unable to outlive that parent. |
 | `authority_source` | Same `source_id` only. No source-widening lattice is defined, so a different source cannot be proven not to widen and is rejected. |
 
-Malformed or unknown structured authority fails closed (`ErrMalformedAuthority` or `ErrAmplification`). Phase 1 constructors (`NewMandate`, `CreateMandate`) still persist records without running issuance/attenuation.
+Malformed or unknown structured authority fails closed (`ErrMalformedAuthority` or `ErrAmplification`). Phase 1 constructors (`NewMandate`, `CreateMandate`) still persist records without running issuance/attenuation. The authority-bearing chain path is `VerifyDelegationChain`: after a structural walk it reuses `AssertAttenuation` and `AssertMandateUsable` on every stored child→parent hop. A widened child that exists only because of the storage constructor is rejected there. `ReconstructDelegationChain` remains a structural helper and is not an authority decision.
 
 ## Acceptance criteria
 
@@ -82,7 +83,7 @@ Malformed or unknown structured authority fails closed (`ErrMalformedAuthority` 
 | P2-2 | Child issuance fails if any attenuation axis is widened. Equal-on-axis children pass where §14.3 allows equality. | **PASS** | `TestIssueChildEqualOnAxis`, `TestIssueChildNarrowerAuthority`, `TestIssueChildRejectsEachWidenedAxis` (scope, communication, execution, constraints, budget, time, approval, evidence, authority source), `TestIssueChildRejectsAmplificationPersistence`. |
 | P2-3 | `delegation_depth` 0 cannot issue children; child depth is strictly smaller. Other axes are not required to strictly decrease. | **PASS** | `TestParentDepthZeroCannotDelegate`, equal-on-axis child only decreases depth, `TestIssueChildRejectsEachWidenedAxis/delegation_depth_equal`. |
 | P2-4 | Child expiry / `not_before` cannot exceed parent windows. | **PASS** | `TestChildTimeWindowInsideParent`, `TestChildTimeWindowOutsideParentFails`, widening cases for expiry and `not_before`. |
-| P2-5 | Ancestor walk fails closed on a missing link. | **PASS** | `ReconstructDelegationChain` fails on missing, cross-tenant, revoked, or cyclic ancestors. Tests: `TestReconstructDelegationChainMissingLinkFailsClosed`, `TestReconstructDelegationChainCrossTenantFailsClosed`, `TestReconstructDelegationChainRevokedAncestorFailsClosed`, `TestReconstructDelegationChainCycleFailsClosed`, `TestReconstructChainMissingLinkPersistence`. Valid chain: `TestReconstructDelegationChainSuccess`, `TestIssueChildMandateAndChainPersistence`. |
+| P2-5 | Ancestor walk fails closed on a missing link. | **PASS** | `ReconstructDelegationChain` fails on missing, cross-tenant, revoked, or cyclic ancestors. `VerifyDelegationChain` additionally fails closed when a stored hop is not an attenuation. Tests: `TestReconstructDelegationChainMissingLinkFailsClosed`, `TestReconstructDelegationChainCrossTenantFailsClosed`, `TestReconstructDelegationChainRevokedAncestorFailsClosed`, `TestReconstructDelegationChainCycleFailsClosed`, `TestReconstructChainMissingLinkPersistence`, `TestVerifyDelegationChainRejectsWidenedStoredChild`, `TestVerifyDelegationChainRejectsPersistedWidenedChild`. Valid chain: `TestReconstructDelegationChainSuccess`, `TestIssueChildMandateAndChainPersistence`. |
 | P2-6 | Lint/tests pass and `reports/PHASE-2-VERIFICATION-REPORT.md` exists. No Phase 3 API. | **PASS** | `go test ./...`, `gofmt`, `go vet`, and `staticcheck` passed. This report exists. Packages remain `internal/domain` and `internal/postgres` only. No `cmd/`, `api/`, `internal/decision`, `internal/policy`, `internal/evidence`, or `internal/adapters`. |
 
 ## Tests executed and results
@@ -107,6 +108,7 @@ PostgreSQL was available via Docker (`postgres:16-alpine`) started by the existi
 | `TestIssueOriginatingMandatePersistence` | PASS |
 | `TestIssueOriginatingMandateRejectsDraftMission` | PASS |
 | `TestIssueChildMandateAndChainPersistence` | PASS |
+| `TestVerifyDelegationChainRejectsPersistedWidenedChild` | PASS |
 | `TestIssueChildRejectsAmplificationPersistence` | PASS |
 | `TestReconstructChainMissingLinkPersistence` | PASS |
 | `TestCreateSubMissionRejectsOutlivingParent` | PASS |
@@ -168,7 +170,7 @@ None. Phase 2 uses the locked Phase 1 schema. Persistence additions are `UPDATE`
 
 - Constraint tightness for unknown keys is fail-closed equality only. A later decision may define a richer constraint vocabulary.
 - Authority-source attenuation is same-`source_id` only. The specification allows a non-widening different source, but no lattice exists; a later decision is required before accepting a different source.
-- `NewMandate` / `CreateMandate` remain storage constructors and can still persist a non-attenuated parent/child pair. Authority use and issuance must go through `IssueOriginatingMandate`, `IssueChildMandate`, and `AssertMandateUsable`.
+- `NewMandate` / `CreateMandate` remain storage constructors and can still persist a non-attenuated parent/child pair. Issuance still uses `IssueOriginatingMandate` / `IssueChildMandate`. The authority-bearing chain path is `VerifyDelegationChain`; structural `ReconstructDelegationChain` must not be used as a decision.
 - Resume from `suspended` is not implemented because it is not specified.
 - There is no specification state named `rejected`. Issue #8 mentioned that word in test expectations; non-approved coverage uses the documented states instead.
 - Mandate wire format and cryptographic signing profile remain unspecified (D-014).
