@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// MissionState is a stored mission status. Transition rules are Phase 2.
+// MissionState is a stored mission status. Transitions are enforced by TransitionMission.
 type MissionState string
 
 const (
@@ -156,6 +156,13 @@ func (r MissionRelations) Validate(orgID uuid.UUID, p MissionParams) error {
 		if err := r.Parent.Validate(); err != nil {
 			return err
 		}
+		child := Mission{
+			NotBefore: normalizeTime(p.NotBefore),
+			Expiry:    normalizeTime(p.Expiry),
+		}
+		if err := child.validateWindowInside(*r.Parent, "sub-mission"); err != nil {
+			return err
+		}
 	}
 	if err := r.Principal.Validate(); err != nil {
 		return err
@@ -170,4 +177,37 @@ func validMissionState(s MissionState) bool {
 	default:
 		return false
 	}
+}
+
+// InWindow reports whether now is inside the inclusive mission validity window.
+func (m Mission) InWindow(now time.Time) bool {
+	now = normalizeTime(now)
+	if m.NotBefore.IsZero() || m.Expiry.IsZero() || now.IsZero() {
+		return false
+	}
+	return !now.Before(m.NotBefore) && !now.After(m.Expiry)
+}
+
+// AssertAuthorizes fails closed unless the mission is approved and in window.
+func (m Mission) AssertAuthorizes(now time.Time) error {
+	if err := m.Validate(); err != nil {
+		return err
+	}
+	if m.State != MissionApproved {
+		return fmt.Errorf("%w: state=%s", ErrMissionNotApproved, m.State)
+	}
+	if !m.InWindow(now) {
+		return fmt.Errorf("%w", ErrMissionOutOfWindow)
+	}
+	return nil
+}
+
+func (m Mission) validateWindowInside(parent Mission, label string) error {
+	if m.NotBefore.Before(parent.NotBefore) {
+		return fmt.Errorf("%w: %s not_before precedes parent", ErrInvalidInput, label)
+	}
+	if m.Expiry.After(parent.Expiry) {
+		return fmt.Errorf("%w: %s expiry exceeds parent", ErrInvalidInput, label)
+	}
+	return nil
 }

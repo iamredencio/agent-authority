@@ -68,7 +68,9 @@ Approved for implementation phases (not started in Phase 0):
 
 **Phase 0 — Repository and specification foundation** is `locked`.
 
-**Phase 1 — Core authority domain model** is `approved` and is the current implementation phase.
+**Phase 1 — Core authority domain model** is `locked`.
+
+**Phase 2 — Mission and delegation engine** is `approved` and is the current implementation phase.
 
 ## Development discipline
 
