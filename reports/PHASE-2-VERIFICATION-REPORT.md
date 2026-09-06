@@ -12,6 +12,7 @@
 | --- | --- |
 | Branch | `phase-2-mission-delegation` |
 | Base | `origin/main` (`6d65d94` — Phase 1 locked) |
+| Implementation commit | `3d5bd2601288ee070de1c221a9f4890ed35e5a18` |
 | Go module | `github.com/iamredencio/agent-authority` |
 | Go version used | `go1.24.6 darwin/arm64` |
 
