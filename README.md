@@ -68,7 +68,7 @@ Approved for implementation phases (not started in Phase 0):
 
 **Phase 0 — Repository and specification foundation** is `locked`.
 
-No application functionality is implemented. Phase 1 is `planned`, not approved. Do not start Phase 1 unless the roadmap marks it approved and a human explicitly authorizes that phase.
+**Phase 1 — Core authority domain model** is `approved` and is the current implementation phase.
 
 ## Development discipline
 

@@ -1,0 +1,15 @@
+# Binaries and test artifacts
+*.exe
+*.test
+*.out
+bin/
+dist/
+coverage.out
+
+# Local environment
+.env
+.env.*
+
+# Go workspace (local only)
+.idea/
+.vscode/
