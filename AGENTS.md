@@ -19,8 +19,11 @@ When documents appear to disagree, resolve in this order:
 3. `docs/ROADMAP.md` — what may be built in the current phase
 4. `docs/ARCHITECTURE.md` — how the approved specification is structured
 5. `AGENTS.md` — how you work
-6. `README.md` — orientation only
-7. `docs/MARKET-WATCH.md` — informational only; never a build license
+6. `docs/WORKFLOW.md` — handoff and review process
+7. `README.md` — orientation only
+8. `docs/MARKET-WATCH.md` — informational only; never a build license
+
+A GitHub Issue is a **work order**, not a higher source of product truth. It is valid only when it is consistent with the sources above and records explicit human approval. If an Issue conflicts with repository documentation, stop and report the conflict.
 
 A market-watch finding is **not** a requirement. It becomes actionable only after it is recorded as an approved decision and/or an approved roadmap item.
 
@@ -30,10 +33,14 @@ Complete this checklist. If any item fails, stop and report.
 
 1. Read this file in full.
 2. Read `docs/SPECIFICATION.md`, `docs/ARCHITECTURE.md`, `docs/ROADMAP.md` and `docs/DECISIONS.md`.
-3. Identify the **single currently approved implementation phase** in the roadmap.
-4. Confirm a human explicitly asked you to implement that phase.
-5. Confirm the requested work is inside that phase’s scope and acceptance criteria.
-6. Confirm the work is not an unapproved market-watch item.
+3. Read `docs/WORKFLOW.md` when the task is handed off through GitHub.
+4. Identify the **single currently approved implementation phase** in the roadmap.
+5. Identify the single approved GitHub Issue/work order when one is supplied.
+6. Confirm the Issue/work order records explicit human approval and is consistent with the approved phase.
+7. Confirm the requested work is inside that phase’s scope and acceptance criteria.
+8. Confirm the work is not an unapproved market-watch item.
+
+If multiple candidate work orders exist, do not choose autonomously. Require an explicit Issue reference or human selection.
 
 Phase 0 is documentation only. Application code is forbidden until Phase 1 is approved and explicitly requested.
 
@@ -43,12 +50,14 @@ For every implementation phase:
 
 1. Read `AGENTS.md`.
 2. Read the specification, architecture and roadmap.
-3. Implement **only** the currently approved phase.
-4. Add tests that cover the phase acceptance criteria.
-5. Run linting and tests.
-6. Produce `reports/PHASE-N-VERIFICATION-REPORT.md`.
-7. **Stop.**
-8. Do not proceed to the next phase without explicit human approval.
+3. Read the approved work-order Issue when the workflow uses one.
+4. Implement **only** the currently approved phase/work order.
+5. Add tests that cover the phase acceptance criteria.
+6. Run linting and tests.
+7. Produce `reports/PHASE-N-VERIFICATION-REPORT.md`.
+8. Open/prepare a PR that links the work order and verification report when GitHub workflow is available.
+9. **Stop.**
+10. Do not proceed to the next phase without explicit human approval.
 
 Do not “prepare”, “scaffold ahead”, or land types, APIs, adapters or schemas whose only purpose is a future phase. Forward-compatible seams that the current phase’s architecture already requires are allowed; speculative features are not.
 
@@ -125,6 +134,8 @@ Intended Go layout (create only when the approved phase needs it): `cmd/`, `inte
 - The repository auto-deletes head branches after merge. Do not keep long-lived feature branches.
 - Branch names should be short and purpose-based (for example `docs/phase-0-foundation`, `phase-1-domain-model`).
 - Do not force-push to `main`. Do not update git config.
+- When work originates from an approved GitHub Issue, link that Issue from the PR.
+- An Issue may carry implementation detail but may not override specification, decisions, roadmap, architecture, or this contract.
 
 ## Code and change rules (implementation phases)
 
@@ -137,7 +148,7 @@ Intended Go layout (create only when the approved phase needs it): `cmd/`, `inte
 
 ## If you are blocked
 
-Stop. Record the gap in the verification report or in the chat. Propose a decision or roadmap amendment. Do not guess a product expansion.
+Stop. Record the gap in the verification report, GitHub Issue, PR, or chat. Propose a decision or roadmap amendment. Do not guess a product expansion.
 
 ## Phase 0 special rule
 
