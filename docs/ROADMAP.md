@@ -17,7 +17,7 @@ Market-watch items are not phases. They enter this file only after an approved d
 | **State** | `approved` — may be implemented when a human explicitly requests it; `locked` — done; `planned` — not yet approved for implementation |
 | **Gate** | A human must explicitly approve starting the next phase after the verification report for the current phase |
 
-**Current approved implementation phase:** Phase 1. Phase 0 is `locked`. Phase 1 is `approved` after explicit human request. Phases 2–10 remain `planned`.
+**Current approved implementation phase:** none. Phase 0 and Phase 1 are `locked`. Phases 2–10 remain `planned` until explicitly approved by a human.
 
 ---
 
@@ -72,7 +72,7 @@ Market-watch items are not phases. They enter this file only after an approved d
 
 ## Phase 1 — Core authority domain model
 
-**State:** `approved`  
+**State:** `locked`  
 **Goal:** Persist the core aggregates and invariants in Go + PostgreSQL. No public decision API.
 
 ### In scope
