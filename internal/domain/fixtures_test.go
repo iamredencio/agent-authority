@@ -53,6 +53,10 @@ func testWindow() (time.Time, time.Time) {
 	return now, now.Add(24 * time.Hour)
 }
 
+func testNow() time.Time {
+	return time.Date(2026, 9, 6, 12, 0, 0, 0, time.UTC)
+}
+
 func testMission(t *testing.T, orgID, principal, source uuid.UUID) Mission {
 	t.Helper()
 	nb, exp := testWindow()

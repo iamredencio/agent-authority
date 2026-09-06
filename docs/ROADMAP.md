@@ -17,7 +17,7 @@ Market-watch items are not phases. They enter this file only after an approved d
 | **State** | `approved` — may be implemented when a human explicitly requests it; `locked` — done; `planned` — not yet approved for implementation |
 | **Gate** | A human must explicitly approve starting the next phase after the verification report for the current phase |
 
-**Current approved implementation phase:** none. Phase 0 and Phase 1 are `locked`. Phases 2–10 remain `planned` until explicitly approved by a human.
+**Current approved implementation phase:** Phase 2. Phase 0 and Phase 1 are `locked`. Phase 2 is `approved` after explicit human request. Phases 3–10 remain `planned`.
 
 ---
 
@@ -106,7 +106,7 @@ Market-watch items are not phases. They enter this file only after an approved d
 
 ## Phase 2 — Mission and delegation engine
 
-**State:** `planned`  
+**State:** `approved`  
 **Goal:** Enforce mission windows and attenuation-only delegation.
 
 ### In scope

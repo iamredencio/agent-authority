@@ -12,7 +12,8 @@ import (
 // It is not a portable wire format.
 const MandateSchemaVersion = "1"
 
-// MandateState is a stored mandate status. Issuance and revocation engines are later phases.
+// MandateState is a stored mandate status. Issuance is enforced by IssueOriginatingMandate
+// and IssueChildMandate. Revocation remains a later phase.
 type MandateState string
 
 const (
