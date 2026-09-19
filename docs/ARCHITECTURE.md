@@ -328,7 +328,7 @@ Adapters enforce locally only by obeying this result. They never infer allow fro
 ## 9. Policy engine
 
 - Initial language compatibility: **OPA/Rego**.
-- Embedded vs sidecar is deferred to a Phase 3 decision (see D-006).
+- Embedded vs sidecar was deferred by D-006 and is now recorded in D-021: Phase 3 embeds OPA in-process.
 - Policy may deny what a mandate appears to allow. Policy MUST NOT allow what a mandate does not grant (no policy-based amplification).
 - Inputs to policy: organization, mandate (minus secrets), mission, act, identity claims, time.
 

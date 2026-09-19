@@ -70,7 +70,9 @@ Approved for implementation phases (not started in Phase 0):
 
 **Phase 1 — Core authority domain model** is `locked`.
 
-**Phase 2 — Mission and delegation engine** is `approved` and is the current implementation phase.
+**Phase 2 — Mission and delegation engine** is `locked`.
+
+**Phase 3 — Policy decision API** is `approved` and is the current implementation phase.
 
 ## Development discipline
 

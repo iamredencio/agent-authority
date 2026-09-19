@@ -27,15 +27,44 @@ func (s *Store) CreateIdentityBinding(ctx context.Context, b domain.IdentityBind
 	return mapError(err)
 }
 
-func (s *Store) GetIdentityBinding(ctx context.Context, organizationID, bindingID uuid.UUID) (domain.IdentityBinding, error) {
+func (s *Store) GetIdentityBindingBySubject(ctx context.Context, organizationID uuid.UUID, provider domain.IdentityProvider, subject string) (domain.IdentityBinding, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT binding_id, organization_id, kind, provider, subject, display_name, attestation_meta, status
+		FROM identity_bindings
+		WHERE organization_id = $1 AND provider = $2 AND subject = $3
+	`, organizationID, provider, subject)
+	if err != nil {
+		return domain.IdentityBinding{}, mapError(err)
+	}
+	defer rows.Close()
+
+	var found []domain.IdentityBinding
+	for rows.Next() {
+		b, err := scanIdentityBinding(rows)
+		if err != nil {
+			return domain.IdentityBinding{}, err
+		}
+		found = append(found, b)
+	}
+	if err := rows.Err(); err != nil {
+		return domain.IdentityBinding{}, mapError(err)
+	}
+	if len(found) == 0 {
+		return domain.IdentityBinding{}, domain.ErrNotFound
+	}
+	if len(found) > 1 {
+		return domain.IdentityBinding{}, domain.ErrConflict
+	}
+	return found[0], nil
+}
+
+func scanIdentityBinding(row interface {
+	Scan(dest ...any) error
+}) (domain.IdentityBinding, error) {
 	var b domain.IdentityBinding
 	var display *string
 	var meta []byte
-	err := s.pool.QueryRow(ctx, `
-		SELECT binding_id, organization_id, kind, provider, subject, display_name, attestation_meta, status
-		FROM identity_bindings
-		WHERE organization_id = $1 AND binding_id = $2
-	`, organizationID, bindingID).Scan(
+	if err := row.Scan(
 		&b.BindingID,
 		&b.OrganizationID,
 		&b.Kind,
@@ -44,8 +73,7 @@ func (s *Store) GetIdentityBinding(ctx context.Context, organizationID, bindingI
 		&display,
 		&meta,
 		&b.Status,
-	)
-	if err != nil {
+	); err != nil {
 		return domain.IdentityBinding{}, mapError(err)
 	}
 	b.DisplayName = derefString(display)
@@ -53,4 +81,13 @@ func (s *Store) GetIdentityBinding(ctx context.Context, organizationID, bindingI
 		b.AttestationMeta = json.RawMessage(meta)
 	}
 	return b, nil
+}
+
+func (s *Store) GetIdentityBinding(ctx context.Context, organizationID, bindingID uuid.UUID) (domain.IdentityBinding, error) {
+	row := s.pool.QueryRow(ctx, `
+		SELECT binding_id, organization_id, kind, provider, subject, display_name, attestation_meta, status
+		FROM identity_bindings
+		WHERE organization_id = $1 AND binding_id = $2
+	`, organizationID, bindingID)
+	return scanIdentityBinding(row)
 }
