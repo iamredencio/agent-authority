@@ -12,6 +12,7 @@
 | --- | --- |
 | Branch | `phase-3-decision-api` |
 | Base | `origin/main` (`713610e` — Phase 2 locked) |
+| Implementation commit | `f298ac6daaa50d3785e7e3ea531374d1227ae511` |
 | Go module | `github.com/iamredencio/agent-authority` |
 | Go version used | `go1.24.6 darwin/arm64` |
 
