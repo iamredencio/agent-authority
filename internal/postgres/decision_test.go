@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -101,6 +102,43 @@ func TestDecisionAPIPersistsDenyWithoutMandate(t *testing.T) {
 	}
 	if got.MandateID != nil {
 		t.Fatalf("deny without mandate should not store a mandate_id: %v", got.MandateID)
+	}
+}
+
+func TestDecisionAPIUnknownOrganizationIsNotStored(t *testing.T) {
+	store := openTestStore(t)
+	eng := &decision.Engine{
+		Store:  store,
+		Policy: policy.Default(),
+		Now:    func() time.Time { return time.Date(2026, 9, 6, 12, 0, 0, 0, time.UTC) },
+	}
+	srv := httptest.NewServer(decision.Handler(eng))
+	t.Cleanup(srv.Close)
+
+	unknown := uuid.Must(uuid.NewV7())
+	body, _ := json.Marshal(map[string]any{
+		"organization_id": unknown.String(),
+		"act_type":        "execute",
+		"act":             map[string]any{"action": "draft_report"},
+		"identity":        map[string]any{"binding_id": uuid.Must(uuid.NewV7()).String()},
+	})
+	resp, err := http.Post(srv.URL+"/v1/decisions", "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status=%d", resp.StatusCode)
+	}
+	var out map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := out["decision_id"]; ok {
+		t.Fatalf("unknown organization must not return a decision: %v", out)
+	}
+	if _, err := store.GetDecision(context.Background(), unknown, uuid.Must(uuid.NewV7())); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("lookup err=%v", err)
 	}
 }
 

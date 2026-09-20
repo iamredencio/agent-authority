@@ -66,7 +66,7 @@ func Handler(engine *Engine) http.Handler {
 
 		decision, err := engine.Evaluate(r.Context(), req)
 		if err != nil {
-			if errors.Is(err, domain.ErrRequiredField) || errors.Is(err, domain.ErrInvalidInput) {
+			if errors.Is(err, domain.ErrRequiredField) || errors.Is(err, domain.ErrInvalidInput) || errors.Is(err, ErrUnknownOrganization) {
 				writeError(w, http.StatusBadRequest, err.Error())
 				return
 			}

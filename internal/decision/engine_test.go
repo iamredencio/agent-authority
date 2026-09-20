@@ -554,6 +554,7 @@ func TestOpenAPIDescribesDecisionContract(t *testing.T) {
 		"spend",
 		"identity",
 		"organization_id",
+		"not a completed authorization decision",
 	} {
 		if !strings.Contains(doc, need) {
 			t.Fatalf("openapi missing %q", need)
@@ -629,5 +630,61 @@ func TestMissingOrganizationEvaluateError(t *testing.T) {
 	})
 	if !errors.Is(err, domain.ErrRequiredField) {
 		t.Fatalf("err=%v", err)
+	}
+	if len(store.decisions) != 0 {
+		t.Fatal("missing organization must not produce a stored decision")
+	}
+}
+
+func TestUnknownOrganizationIsNotADecision(t *testing.T) {
+	store := newMemory()
+	unknown := uuid.Must(uuid.NewV7())
+	got, err := engineWith(store, allowPolicy{}).Evaluate(context.Background(), Request{
+		OrganizationID: unknown,
+		ActType:        domain.ActExecute,
+		Act:            json.RawMessage(`{"action":"draft_report"}`),
+	})
+	if !errors.Is(err, ErrUnknownOrganization) {
+		t.Fatalf("err=%v", err)
+	}
+	if got.DecisionID != uuid.Nil {
+		t.Fatalf("unknown organization returned a decision: %+v", got)
+	}
+	if len(store.decisions) != 0 {
+		t.Fatal("unknown organization must not produce a stored decision")
+	}
+}
+
+func TestHTTPUnknownOrganization(t *testing.T) {
+	store := newMemory()
+	seed(t, store)
+	srv := httptest.NewServer(Handler(engineWith(store, allowPolicy{})))
+	t.Cleanup(srv.Close)
+	body, _ := json.Marshal(map[string]any{
+		"organization_id": uuid.Must(uuid.NewV7()).String(),
+		"act_type":        "execute",
+		"act":             map[string]any{"action": "draft_report"},
+		"identity":        map[string]any{"binding_id": uuid.Must(uuid.NewV7()).String()},
+	})
+	resp, err := http.Post(srv.URL+"/v1/decisions", "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status=%d", resp.StatusCode)
+	}
+	var out map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := out["decision_id"]; ok {
+		t.Fatalf("unknown organization must not return a decision: %v", out)
+	}
+	if out["error"] == nil {
+		t.Fatalf("expected error body, got %v", out)
+	}
+	if len(store.decisions) != 0 {
+		t.Fatal("unknown organization must not produce a stored decision")
 	}
 }

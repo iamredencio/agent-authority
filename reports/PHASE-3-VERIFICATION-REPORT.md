@@ -13,6 +13,7 @@
 | Branch | `phase-3-decision-api` |
 | Base | `origin/main` (`713610e` — Phase 2 locked) |
 | Implementation commit | `f298ac6daaa50d3785e7e3ea531374d1227ae511` |
+| Review fix | PR #12 blocker: unknown organization is a request error, not an unpersisted decision |
 | Go module | `github.com/iamredencio/agent-authority` |
 | Go version used | `go1.24.6 darwin/arm64` |
 
@@ -45,15 +46,16 @@ Not implemented (later phases): hash-chained evidence plane, MCP adapter, OIDC/E
 
 ## Decision evaluation order
 
-1. Resolve the identity claim (binding id or provider+subject).
-2. Reject if there is no matching mandate, the actor is not the mandated agent, or the binding is disabled.
-3. Load mission and `VerifyDelegationChain`.
-4. `AssertMandateUsable` (active, in window, approved mission).
-5. Match communication / execution / spend / delegate rules. Unknown destination or action fails closed.
-6. Evaluate constraints. Unmet set constraints fail closed.
-7. If approval requirements are still unmet, the candidate result is `pending_approval`.
-8. Evaluate policy. Policy may deny a mandate-permitted act and cannot override a prior deny.
-9. Persist the decision. `evidence_record_id` stays unset.
+1. Establish the tenant. A missing or unknown `organization_id` is a request error (`400`), not a stored decision. The organization FK is unchanged.
+2. Resolve the identity claim (binding id or provider+subject).
+3. Reject if there is no matching mandate, the actor is not the mandated agent, or the binding is disabled.
+4. Load mission and `VerifyDelegationChain`.
+5. `AssertMandateUsable` (active, in window, approved mission).
+6. Match communication / execution / spend / delegate rules. Unknown destination or action fails closed.
+7. Evaluate constraints. Unmet set constraints fail closed.
+8. If approval requirements are still unmet, the candidate result is `pending_approval`.
+9. Evaluate policy. Policy may deny a mandate-permitted act and cannot override a prior deny.
+10. Persist the decision. `evidence_record_id` stays unset.
 
 Revocation is the stored mandate `state`. A store error while loading mandate/chain is treated as revocation-view unavailable and denied.
 
@@ -61,14 +63,14 @@ Revocation is the stored mandate `state`. A store error while loading mandate/ch
 
 | ID | Criterion | Result | Evidence |
 | --- | --- | --- | --- |
-| P3-1 | Each communicate/execute/delegate/spend request produces a stored decision. | **PASS** | `TestEvaluateStoresEachActType` stores an `allow` for all four act types. `TestDecisionPersistenceRoundTrip` and `TestDecisionAPIPersistsDenyWithoutMandate` persist through PostgreSQL. |
+| P3-1 | Each communicate/execute/delegate/spend request produces a stored decision. | **PASS** | `TestEvaluateStoresEachActType` stores an `allow` for all four act types. `TestDecisionPersistenceRoundTrip` and `TestDecisionAPIPersistsDenyWithoutMandate` persist through PostgreSQL. A missing or unknown tenant is **not** a completed decision: `TestUnknownOrganizationIsNotADecision`, `TestHTTPUnknownOrganization`, `TestDecisionAPIUnknownOrganizationIsNotStored` return a `400` request error and store nothing. The organization FK is unchanged. |
 | P3-2 | Valid authentication without a matching mandate is `deny`. | **PASS** | `TestValidAuthWithoutMandateIsDeny`, `TestFailClosedCases/unknown_mandate`, `TestDecisionAPIPersistsDenyWithoutMandate`. Reason `AUTHN_NOT_AUTHZ`. |
 | P3-3 | Unknown destination or action is `deny` (fail closed). | **PASS** | `TestUnknownDestinationAndActionDeny`, `TestMatchCommunicationUnknownFailsClosed`, wildcard cases fail closed. |
 | P3-4 | Policy can deny a mandate-permitted act; policy cannot allow a mandate-forbidden act. | **PASS** | `TestPolicyDeniesMandatePermittedAct`, `TestEmbeddedRegoPolicyDeny`, `TestPolicyCannotAllowMandateForbiddenAct` (allow-all policy still cannot grant `wire_funds`). |
 | P3-5 | OpenTelemetry spans exist for decision evaluation. | **PASS** | `TestOpenTelemetrySpanOnEvaluate` records `authority.decision.evaluate` with `decision.result`. `cmd/decisiond` installs a tracer provider. |
 | P3-6 | Lint, tests, `reports/PHASE-3-VERIFICATION-REPORT.md`. No MCP adapter. | **PASS** | `go test ./...`, `gofmt`, `go vet`, and `staticcheck` passed. This report exists. No `internal/adapters` or MCP package. |
 
-Regression coverage also includes malformed JSON (`TestHTTPMalformedJSON`), actor mismatch, broken chain, policy evaluation error, expired mandate, unapproved mission, cross-tenant mandate id, disabled identity, depth-0 delegate, and pending approval without a workflow grant.
+Regression coverage also includes malformed JSON (`TestHTTPMalformedJSON`), unknown organization (`TestUnknownOrganizationIsNotADecision`, `TestHTTPUnknownOrganization`, `TestDecisionAPIUnknownOrganizationIsNotStored`), actor mismatch, broken chain, policy evaluation error, expired mandate, unapproved mission, cross-tenant mandate id, disabled identity, depth-0 delegate, and pending approval without a workflow grant.
 
 ## Tests executed and results
 
@@ -94,6 +96,7 @@ PostgreSQL was available via Docker (`postgres:16-alpine`) started by the existi
 | --- | --- |
 | `TestDecisionPersistenceRoundTrip` | PASS |
 | `TestDecisionAPIPersistsDenyWithoutMandate` | PASS |
+| `TestDecisionAPIUnknownOrganizationIsNotStored` | PASS |
 | `TestIdentityBindingBySubject` | PASS |
 | Phase 1–2 persistence suite | PASS |
 
@@ -107,7 +110,7 @@ PostgreSQL was available via Docker (`postgres:16-alpine`) started by the existi
 
 ## OpenAPI
 
-`api/openapi.yaml` documents `POST /v1/decisions` with act types `communicate` / `execute` / `delegate` / `spend` / `control`, results `allow` / `deny` / `pending_approval`, and identity as a claim. `TestOpenAPIDescribesDecisionContract` and `TestHTTPDecisionAPI` check the contract against the handler.
+`api/openapi.yaml` documents `POST /v1/decisions` with act types `communicate` / `execute` / `delegate` / `spend` / `control`, results `allow` / `deny` / `pending_approval`, and identity as a claim. A missing or unknown `organization_id` is documented as HTTP `400` and is not a completed authorization decision. `TestOpenAPIDescribesDecisionContract` and `TestHTTPDecisionAPI` check the contract against the handler.
 
 ## Files changed
 
@@ -160,7 +163,7 @@ No `internal/adapters`, `internal/evidence`, Redis, SDK, Docker/Helm, or mandate
 - `pending_approval` is an outcome only. There is no grant/deny workflow (Phase 7).
 - Mandate `state=revoked` is honored, but out-of-band revocation/containment is still Phase 8.
 - Spend decisions do not decrement remaining budget (Phase 9).
-- An unknown `organization_id` cannot be persisted because of the tenancy FK; the in-memory result is still `deny`.
+- A missing or unknown `organization_id` is a `400` request error, not a stored deny. Completed communicate/execute/delegate/spend decisions against an existing tenant are always persisted.
 - Mandate wire format and cryptographic signing profile remain unspecified (D-014).
 - Integration tests start PostgreSQL with Docker when `TEST_DATABASE_URL` is unset. That is a test fixture, not product packaging.
 - Local linking of OPA with CGO required `CGO_ENABLED=0` on this macOS 27 SDK. The process is intended to run without CGO.

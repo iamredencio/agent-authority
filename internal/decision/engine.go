@@ -85,6 +85,10 @@ func (e *Engine) tracer() trace.Tracer {
 	return otel.Tracer(tracerName)
 }
 
+// ErrUnknownOrganization is a request error, not a completed authorization decision.
+// P3-1 stores a decision only after the tenant boundary is established.
+var ErrUnknownOrganization = errors.New("unknown organization")
+
 // Evaluate produces and persists one decision. Policy never overrides a deny.
 func (e *Engine) Evaluate(ctx context.Context, req Request) (domain.Decision, error) {
 	ctx, span := e.tracer().Start(ctx, spanName, trace.WithSpanKind(trace.SpanKindInternal))
@@ -102,8 +106,17 @@ func (e *Engine) Evaluate(ctx context.Context, req Request) (domain.Decision, er
 		return domain.Decision{}, err
 	}
 
+	if _, err := e.Store.GetOrganization(ctx, req.OrganizationID); err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			err = fmt.Errorf("%w: organization_id", ErrUnknownOrganization)
+		}
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "organization")
+		return domain.Decision{}, err
+	}
+
 	decidedAt := e.now()
-	built, persist := e.decide(ctx, req, decidedAt)
+	built := e.decide(ctx, req, decidedAt)
 	if built.Result == domain.ResultAllow {
 		until := decidedAt.Add(e.ttl())
 		built.ValidUntil = &until
@@ -114,16 +127,6 @@ func (e *Engine) Evaluate(ctx context.Context, req Request) (domain.Decision, er
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "invalid decision")
 		return domain.Decision{}, err
-	}
-
-	if !persist {
-		span.SetAttributes(
-			attribute.String("decision.id", decision.DecisionID.String()),
-			attribute.String("decision.result", string(decision.Result)),
-			attribute.String("decision.reason", decision.Reasons[0].Code),
-			attribute.Bool("decision.persisted", false),
-		)
-		return decision, nil
 	}
 
 	if err := e.Store.CreateDecision(ctx, decision); err != nil {
@@ -160,7 +163,7 @@ func (e *Engine) Evaluate(ctx context.Context, req Request) (domain.Decision, er
 	return decision, nil
 }
 
-func (e *Engine) decide(ctx context.Context, req Request, now time.Time) (domain.DecisionParams, bool) {
+func (e *Engine) decide(ctx context.Context, req Request, now time.Time) domain.DecisionParams {
 	params := domain.DecisionParams{
 		OrganizationID: req.OrganizationID,
 		ActType:        fallbackActType(req.ActType),
@@ -169,101 +172,97 @@ func (e *Engine) decide(ctx context.Context, req Request, now time.Time) (domain
 		DecidedAt:      now,
 	}
 
-	if _, err := e.Store.GetOrganization(ctx, req.OrganizationID); err != nil {
-		params.Reasons = reasons(codeFor(err, domain.ReasonOrganizationMissing), err.Error())
-		return params, false
-	}
 	if !validActType(req.ActType) {
 		params.Reasons = reasons(domain.ReasonMalformedRequest, "act_type is required")
-		return params, true
+		return params
 	}
 	if err := requireAct(req.Act); err != nil {
 		params.Reasons = reasons(domain.ReasonMalformedRequest, err.Error())
-		return params, true
+		return params
 	}
 
 	actor, err := e.resolveIdentity(ctx, req.OrganizationID, req.Identity)
 	if err != nil {
 		params.Reasons = reasons(codeFor(err, domain.ReasonIdentityNotFound), err.Error())
-		return params, true
+		return params
 	}
 	params.ActorBindingID = &actor.BindingID
 	if actor.Status != domain.BindingActive {
 		params.Reasons = reasons(domain.ReasonIdentityDisabled, domain.ErrIdentityDisabled.Error())
-		return params, true
+		return params
 	}
 
 	if req.MandateID == nil {
 		params.Reasons = reasons(domain.ReasonAuthnNotAuthz, "authentication is not authorization")
-		return params, true
+		return params
 	}
 
 	mandate, err := e.Store.GetMandate(ctx, req.OrganizationID, *req.MandateID)
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) || errors.Is(err, domain.ErrCrossTenant) {
 			params.Reasons = reasons(domain.ReasonAuthnNotAuthz, "no matching mandate")
-			return params, true
+			return params
 		}
 		params.Reasons = reasons(codeFor(err, domain.ReasonRevocationUnavailable), err.Error())
-		return params, true
+		return params
 	}
 	params.MandateID = &mandate.MandateID
 	params.MissionID = &mandate.MissionID
 
 	if mandate.AgentBindingID != actor.BindingID {
 		params.Reasons = reasons(domain.ReasonActorMismatch, domain.ErrActorMismatch.Error())
-		return params, true
+		return params
 	}
 	if actor.Kind != domain.KindAgent {
 		params.Reasons = reasons(domain.ReasonAuthnNotAuthz, "caller is not the mandated agent")
-		return params, true
+		return params
 	}
 
 	mission, err := e.Store.GetMission(ctx, req.OrganizationID, mandate.MissionID)
 	if err != nil {
 		params.Reasons = reasons(codeFor(err, domain.ReasonBrokenChain), err.Error())
-		return params, true
+		return params
 	}
 
 	if _, err := e.Store.VerifyDelegationChain(ctx, req.OrganizationID, mandate.MandateID, now); err != nil {
 		params.Reasons = reasons(codeFor(err, domain.ReasonBrokenChain), err.Error())
-		return params, true
+		return params
 	}
 
 	if err := domain.AssertMandateUsable(mandate, mission, now); err != nil {
 		params.Reasons = reasons(codeFor(err, domain.ReasonMandateNotUsable), err.Error())
-		return params, true
+		return params
 	}
 
 	if err := matchAct(req.ActType, mandate, req.Act, now); err != nil {
 		params.Reasons = reasons(codeFor(err, domain.ReasonDeniedDefault), err.Error())
-		return params, true
+		return params
 	}
 
 	pending, err := domain.ApprovalRequired(mandate.ApprovalRequirements)
 	if err != nil {
 		params.Reasons = reasons(domain.ReasonMalformedRequest, err.Error())
-		return params, true
+		return params
 	}
 
 	if e.Policy == nil {
 		params.Reasons = reasons(domain.ReasonPolicyError, "policy engine missing")
-		return params, true
+		return params
 	}
 	if _, err := e.Policy.Allow(ctx, policyInput(req, mandate, mission, actor, now)); err != nil {
 		params.Reasons = reasons(codeFor(err, domain.ReasonPolicyDeny), err.Error())
-		return params, true
+		return params
 	}
 
 	if pending {
 		params.Result = domain.ResultPendingApproval
 		params.Reasons = reasons(domain.ReasonApprovalRequired, "mandate requires an approval that has not been granted")
-		return params, true
+		return params
 	}
 
 	params.Result = domain.ResultAllow
 	params.Reasons = reasons(domain.ReasonAllowed, "mandate and policy authorize the act")
-	return params, true
+	return params
 }
 
 func (e *Engine) resolveIdentity(ctx context.Context, orgID uuid.UUID, claim IdentityClaim) (domain.IdentityBinding, error) {
