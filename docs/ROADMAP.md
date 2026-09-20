@@ -17,7 +17,7 @@ Market-watch items are not phases. They enter this file only after an approved d
 | **State** | `approved` — may be implemented when a human explicitly requests it; `locked` — done; `planned` — not yet approved for implementation |
 | **Gate** | A human must explicitly approve starting the next phase after the verification report for the current phase |
 
-**Current approved implementation phase:** None. Phase 0, Phase 1, and Phase 2 are `locked`. Phases 3–10 remain `planned` and require explicit human approval before implementation.
+**Current approved implementation phase:** Phase 3. Phase 0, Phase 1, and Phase 2 are `locked`. Phase 3 is `approved` after explicit human request (GitHub Issue #11). Phases 4–10 remain `planned`.
 
 ---
 
@@ -139,7 +139,7 @@ Market-watch items are not phases. They enter this file only after an approved d
 
 ## Phase 3 — Policy decision API
 
-**State:** `planned`  
+**State:** `approved`  
 **Goal:** Independent authorization for each requested act.
 
 ### In scope

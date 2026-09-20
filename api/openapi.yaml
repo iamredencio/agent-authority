@@ -1,0 +1,133 @@
+openapi: 3.0.3
+info:
+  title: Agent Authority Decision API
+  description: |
+    Independent authorization for one requested act.
+    Authentication identity is a claim only. A valid identity does not authorize.
+    Policy may further deny a mandate-permitted act and cannot grant a mandate-forbidden act.
+  version: 0.3.0
+servers:
+  - url: /
+paths:
+  /v1/decisions:
+    post:
+      summary: Evaluate one communicate, execute, delegate, spend, or control act
+      operationId: createDecision
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecisionRequest"
+      responses:
+        "200":
+          description: A stored decision. Result is allow, deny, or pending_approval.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Decision"
+        "400":
+          description: |
+            Malformed request, or the organization_id is missing or does not
+            identify a tenant. This is not a completed authorization decision
+            and is not stored.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Decision could not be completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  schemas:
+    DecisionRequest:
+      type: object
+      additionalProperties: false
+      required: [organization_id, act_type, act, identity]
+      properties:
+        organization_id:
+          type: string
+          format: uuid
+        mandate_id:
+          type: string
+          format: uuid
+          description: Absent or unknown mandate yields deny. Authentication is not authorization.
+        act_type:
+          $ref: "#/components/schemas/ActType"
+        act:
+          type: object
+          additionalProperties: true
+          description: Act payload. communicate requires destination; execute requires action; spend requires amount and unit.
+        identity:
+          $ref: "#/components/schemas/IdentityClaim"
+    IdentityClaim:
+      type: object
+      additionalProperties: false
+      description: Untrusted authentication claim. Not sufficient for authorization.
+      properties:
+        binding_id:
+          type: string
+          format: uuid
+        provider:
+          type: string
+          enum: [entra, okta, spiffe, crowdstrike, workload, oidc, custom]
+        subject:
+          type: string
+    ActType:
+      type: string
+      enum: [communicate, execute, delegate, spend, control]
+    DecisionResult:
+      type: string
+      enum: [allow, deny, pending_approval]
+    Reason:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+    Decision:
+      type: object
+      required: [decision_id, organization_id, act_type, act, result, reasons, decided_at]
+      properties:
+        decision_id:
+          type: string
+          format: uuid
+        organization_id:
+          type: string
+          format: uuid
+        mandate_id:
+          type: string
+          format: uuid
+        mission_id:
+          type: string
+          format: uuid
+        actor_binding_id:
+          type: string
+          format: uuid
+        act_type:
+          $ref: "#/components/schemas/ActType"
+        act:
+          type: object
+        result:
+          $ref: "#/components/schemas/DecisionResult"
+        reasons:
+          type: array
+          items:
+            $ref: "#/components/schemas/Reason"
+        valid_until:
+          type: string
+          format: date-time
+        decided_at:
+          type: string
+          format: date-time
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string

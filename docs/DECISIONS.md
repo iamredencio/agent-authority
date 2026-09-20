@@ -294,3 +294,16 @@ Until that separate decision exists and is `accepted`, Phase 5 MUST NOT implemen
 **Decision.** Every change lands on a feature branch and a pull request to `main`. Do not push implementation or documentation commits to `main`. Enable GitHub **Automatically delete head branches** so merged branches are removed.
 
 **Consequences.** Engineering agents must create a branch before committing or pushing. Local `main` should track `origin/main`. Long-lived feature branches are not used.
+
+---
+
+## D-021 — Embedded OPA for Phase 3 policy evaluation
+
+**Status:** accepted  
+**Date:** 2026-09-20
+
+**Context.** D-006 selected OPA/Rego compatibility and deferred the Phase 3 embedding choice. A sidecar would add a second process and a network hop to the fail-closed decision path. Phase 3 must unit-test policy evaluation without extra services, and Redis or other brokers remain forbidden.
+
+**Decision.** Phase 3 evaluates policy **in-process** with the official OPA Go library. There is no OPA sidecar, no separate policy service, and no Redis. Policy may only add further restriction after mandate checks have already passed. Policy evaluation errors fail closed. A later accepted decision may add a sidecar or remote PDP for operational isolation; it MUST NOT allow policy to grant what a mandate does not.
+
+**Consequences.** `internal/policy` compiles and queries Rego inside the Decision API process. Tests load fixtures rather than a live OPA container. Deployment of a sidecar is not part of Phase 3.
