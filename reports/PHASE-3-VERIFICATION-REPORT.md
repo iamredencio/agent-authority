@@ -13,7 +13,7 @@
 | Branch | `phase-3-decision-api` |
 | Base | `origin/main` (`713610e` — Phase 2 locked) |
 | Implementation commit | `f298ac6daaa50d3785e7e3ea531374d1227ae511` |
-| Review fix | PR #12 blocker: unknown organization is a request error, not an unpersisted decision |
+| Review fix | `0eca6f6c291fce514b9a0b3e5382b963edd6a9ad` — unknown organization is a request error, not an unpersisted decision |
 | Go module | `github.com/iamredencio/agent-authority` |
 | Go version used | `go1.24.6 darwin/arm64` |
 
